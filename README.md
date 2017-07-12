@@ -3,6 +3,71 @@ Self-Driving Car Engineer Nanodegree Program
 
 ---
 
+## Implementation
+
+### The Model
+
+The model used is the kinematic model described in class.
+
+Equations for the model are:
+
+```
+x_[t+1] = x[t] + v[t] * cos(psi[t]) * dt
+y_[t+1] = y[t] + v[t] * sin(psi[t]) * dt
+psi_[t+1] = psi[t] + v[t] / Lf * delta[t] * dt
+v_[t+1] = v[t] + a[t] * dt
+cte[t+1] = f(x[t]) - y[t] + v[t] * sin(epsi[t]) * dt
+epsi[t+1] = psi[t] - psides[t] + v[t] * delta[t] / Lf * dt
+```
+
+where
+- x,y: car's location
+- psi: car's direction
+- v: velocity of the car
+- cte: cross track error
+- epsi: error in car's orientation
+
+### State
+
+The state vector is [x, y, psi, v, delta, a], where
+
+- x: car's x position
+- y: car;s y position
+- psi: car's heading angle
+- v: car's velocity
+- delta: steering angle of the car
+- a: throttle on the car
+
+### Actuators
+
+- delta: steering angle
+- a: throttle
+
+### Timestep Length and Elapsed Duration (N & dt)
+
+I started out with N=25 steps and time step length of dt=0.05 (50ms) which already provided good results. However at higher speed it was unstable in sharp turns, this was caused by the solver providing aggressive steering angle, which would result in the car veering off the track.
+
+Hyperparameters N and dt were chosen manually by trial and error. I then tried reducing N and simultaneously dt. 
+I settled on a combination of N = 10 and dt = 0.1 (100ms) which gives good results at moderate speeds (up to 60 mph).
+
+### Polynomial Fitting and MPC Preprocessing
+
+In a first step, the waypoints are transformed into the vehicle coordinate system. The resulting x-direction is the forward direction of the vehicle, while the y-direction represents the lateral displacement of waypoints relative to the center of the 
+vehicle. This allows for easy fitting of a polynomial of the form y = a*x^3 + b*x^2 + c*x + d. 
+
+The initial values of x,y and psi can be set to zero because the coordinate system is defined relative to the vehicle. The initial cross track error is calucated using the polyfit and polyval from the transformed x and y coordinates, and the initial orientation error is calculated from the first derivative of the polynomial at x=0.
+
+### Model Predictive Control with Latency
+
+The additional latency introduced in main.cpp presents a problem: The steering value computed by the solver for the first time-step will already be in the past, which will lead to an increase of the CTE and orientation error. The solver will try to compensate the resulting increase in cost in the next iteration but this compensation will also come too late. When this process is repeated a few times, the vehicle will start to oscillate around the intended trajectory, especially at higher velocities.
+
+In order to mitigate this problem, I implemented an averaging procedure that takes the mean of the first two predicted steering angles. This averaging measure successfully stabilizes the control behavior.
+
+## Result
+
+[![](https://i.ytimg.com/vi/JBLDvTWSuGA/1.jpg)](https://youtu.be/JBLDvTWSuGA)
+
+
 ## Dependencies
 
 * cmake >= 3.5
